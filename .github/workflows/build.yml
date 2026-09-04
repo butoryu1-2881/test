@@ -40,9 +40,9 @@ jobs:
       - name: Sync PixelOS Source & Apply Patches
         run: |
           mkdir gsi && cd gsi
-          repo init -u https://github.com/PixelOS-AOSP/manifest.git -b thirteen --depth=1
+          repo init -u https://github.com/PixelOS-AOSP/manifest.git -b thirteen
           git clone https://github.com/MisterZtr/PixelOS_gsi.git -b 13 .repo/local_manifests
-          repo sync -c -j$(nproc) --no-clone-bundle --no-tags
+          repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags
           bash .repo/local_manifests/apply-patches.sh .
 
       - name: Generate Rom Makefile
