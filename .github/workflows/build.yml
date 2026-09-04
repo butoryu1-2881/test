@@ -8,14 +8,21 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Free Disk Space (仮想マシンの容量確保)
+      - name: Maximize Build Space (仮想マシンの超強力容量確保)
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /etc/apt/sources.list.d/*
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/doc/
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /var/lib/docker
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/share/phantomjs*
           sudo apt-get clean
+          echo "=== 不要ツール削除後の空き容量 ==="
           df -h
 
       - name: Install Dependencies (必要ツールの準備)
@@ -45,17 +52,26 @@ jobs:
           # 4. パッチ適用
           bash .repo/local_manifests/apply-patches.sh .
 
-      - name: Generate Rom Makefile & Build GSI
+      - name: Generate Rom Makefile
         run: |
           cd gsi
-
-          # README手順: pixel.mk をコピーして generate.sh を実行
+          # pixel.mk コピー & Makefile生成 (.repo を消す前に実行!)
           cp .repo/local_manifests/pixel.mk device/phh/treble/
           cd device/phh/treble
           bash generate.sh pixel
-          cd ../../../
 
-          # ビルド実行
+      - name: Free Space by Deleting .repo (裏技: .repo削除で30GB超を確保)
+        run: |
+          cd gsi
+          echo "=== .repo 削除前の空き容量 ==="
+          df -h
+          rm -rf .repo
+          echo "=== .repo 削除後の空き容量 ==="
+          df -h
+
+      - name: Build GSI
+        run: |
+          cd gsi
           source build/envsetup.sh
           lunch treble_arm64_bvN-userdebug
           make systemimage -j$(nproc)
