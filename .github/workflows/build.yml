@@ -21,7 +21,7 @@ jobs:
       - name: Install Dependencies (必要ツールの準備)
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libncurses5 libncurses5-dev libreadline-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 python-is-python3
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libncurses5 libncurses5-dev libreadline-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 python-is-python3 xz-utils
 
       - name: Set up Repo Tool
         run: |
@@ -30,33 +30,40 @@ jobs:
           chmod a+x ~/bin/repo
           echo "$HOME/bin" >> $GITHUB_PATH
 
-      - name: Sync PixelOS Source & Treble Patches
+      - name: Sync PixelOS Source & Apply Patches
         run: |
           mkdir gsi && cd gsi
-          # 1. PixelOS 13 のマニフェスト初期化
+          # 1. PixelOS 13 マニフェスト初期化
           repo init -u https://github.com/PixelOS-AOSP/manifest.git -b thirteen --depth=1
 
-          # 2. repo sync の「前」に local_manifests としてクローン配置する
+          # 2. local_manifests として PixelOS_gsi をクローン
           git clone https://github.com/MisterZtr/PixelOS_gsi.git -b 13 .repo/local_manifests
 
-          # 3. PixelOS本体 ＋ GSI用追加ツリーをまとめて同期
+          # 3. ソースコード同期
           repo sync -c -j$(nproc) --no-clone-bundle --no-tags
 
-          # 4. 同期が完了した「後」にパッチを適用する
+          # 4. パッチ適用
           bash .repo/local_manifests/apply-patches.sh .
 
-      - name: Build PixelOS GSI
+      - name: Generate Rom Makefile & Build GSI
         run: |
           cd gsi
+
+          # README手順: pixel.mk をコピーして generate.sh を実行
+          cp .repo/local_manifests/pixel.mk device/phh/treble/
+          cd device/phh/treble
+          bash generate.sh pixel
+          cd ../../../
+
+          # ビルド実行
           source build/envsetup.sh
-          # bgN = arm64 / GApps入り / Read-Write可能
-          lunch treble_arm64_bgN-userdebug
+          lunch treble_arm64_bvN-userdebug
           make systemimage -j$(nproc)
 
       - name: Compress system.img
         run: |
           cd gsi/out/target/product/*
-          xz -v -z -3 system.img
+          xz -z -k -3 system.img
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
