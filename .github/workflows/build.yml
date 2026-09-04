@@ -35,12 +35,15 @@ jobs:
           mkdir gsi && cd gsi
           # 1. PixelOS 13 のマニフェスト初期化
           repo init -u https://github.com/PixelOS-AOSP/manifest.git -b thirteen --depth=1
+
+          # 2. repo sync の「前」に local_manifests としてクローン配置する
+          git clone https://github.com/MisterZtr/PixelOS_gsi.git -b 13 .repo/local_manifests
+
+          # 3. PixelOS本体 ＋ GSI用追加ツリーをまとめて同期
           repo sync -c -j$(nproc) --no-clone-bundle --no-tags
 
-          # 2. MisterZtr 氏の GSI パッチを取得して適用
-          git clone https://github.com/MisterZtr/PixelOS_gsi.git -b 13 patches
-          # パッチ適用スクリプトの実行
-          bash patches/apply-patches.sh .
+          # 4. 同期が完了した「後」にパッチを適用する
+          bash .repo/local_manifests/apply-patches.sh .
 
       - name: Build PixelOS GSI
         run: |
