@@ -1,0 +1,62 @@
+name: Build PixelOS 13 GSI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Free Disk Space (仮想マシンの容量確保)
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /etc/apt/sources.list.d/*
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo apt-get clean
+          df -h
+
+      - name: Install Dependencies (必要ツールの準備)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf lib32ncurses5-dev lib32z1-dev liblibc6-dev-i386-x32 libncurses5 libncurses5-dev libreadline-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 python-is-python3
+
+      - name: Set up Repo Tool
+        run: |
+          mkdir -p ~/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Sync PixelOS Source & Treble Patches
+        run: |
+          mkdir gsi && cd gsi
+          # 1. PixelOS 13 のマニフェスト初期化
+          repo init -u https://github.com/PixelOS-AOSP/manifest.git -b thirteen --depth=1
+          repo sync -c -j$(nproc) --no-clone-bundle --no-tags
+
+          # 2. MisterZtr 氏の GSI パッチを取得して適用
+          git clone https://github.com/MisterZtr/PixelOS_gsi.git -b 13 patches
+          # パッチ適用スクリプトの実行
+          bash patches/apply-patches.sh .
+
+      - name: Build PixelOS GSI
+        run: |
+          cd gsi
+          source build/envsetup.sh
+          # bgN = arm64 / GApps入り / Read-Write可能
+          lunch treble_arm64_bgN-userdebug
+          make systemimage -j$(nproc)
+
+      - name: Compress system.img
+        run: |
+          cd gsi/out/target/product/*
+          xz -v -z -3 system.img
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PixelOS-13-GSI
+          path: gsi/out/target/product/*/system.img.xz
