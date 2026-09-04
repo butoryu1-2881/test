@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Maximize Build Space (仮想マシンの超強力容量確保)
+      - name: Maximize Build Space
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
@@ -22,10 +22,10 @@ jobs:
           sudo rm -rf /usr/local/share/chromium
           sudo rm -rf /usr/local/share/phantomjs*
           sudo apt-get clean
-          echo "=== 不要ツール削除後の空き容量 ==="
+          echo "=== Cleaned ==="
           df -h
 
-      - name: Install Dependencies (必要ツールの準備)
+      - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libncurses5 libncurses5-dev libreadline-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 python-is-python3 xz-utils
@@ -40,33 +40,23 @@ jobs:
       - name: Sync PixelOS Source & Apply Patches
         run: |
           mkdir gsi && cd gsi
-          # 1. PixelOS 13 マニフェスト初期化
           repo init -u https://github.com/PixelOS-AOSP/manifest.git -b thirteen --depth=1
-
-          # 2. local_manifests として PixelOS_gsi をクローン
           git clone https://github.com/MisterZtr/PixelOS_gsi.git -b 13 .repo/local_manifests
-
-          # 3. ソースコード同期
           repo sync -c -j$(nproc) --no-clone-bundle --no-tags
-
-          # 4. パッチ適用
           bash .repo/local_manifests/apply-patches.sh .
 
       - name: Generate Rom Makefile
         run: |
           cd gsi
-          # pixel.mk コピー & Makefile生成 (.repo を消す前に実行!)
           cp .repo/local_manifests/pixel.mk device/phh/treble/
           cd device/phh/treble
           bash generate.sh pixel
 
-      - name: Free Space by Deleting .repo (裏技: .repo削除で30GB超を確保)
+      - name: Free Space by Deleting repo
         run: |
           cd gsi
-          echo "=== .repo 削除前の空き容量 ==="
           df -h
           rm -rf .repo
-          echo "=== .repo 削除後の空き容量 ==="
           df -h
 
       - name: Build GSI
